@@ -1,23 +1,3 @@
-# К работающему серверу добавить следующий функционал:
-#
-# 1. При попытке подключения клиента под логином, который уже есть в чате:
-#     - Отправлять клиенту текст с ошибкой "Логин {login} занят, попробуйте другой"
-#     - Отключать от сервера соединение клиента
-#     - Исправления будут в методе data_received у сервера
-#
-# 2. При успешном подключении клиента в чат:
-#     - Отправлять ему последние 10 сообщений из чата
-#     - Создать отдельный метод send_history и вызывать при успешой авторизации в data_received у сервера
-#
-# 3. Сдача домашних работ производится через Github.
-#     - Создать аккаунт (если еще нет)
-#     - Загрузить работу в репозиторий
-#     - Проверить, что у него открытый доступ (можете открыть в режиме инкогнито)
-#     - Прикрепить ссылку на репозиторий в форму SkillBox для сдачи работы (Google Формы)
-#
-# Форма для сдачи ДЗ - https://clck.ru/NLeZy - ТОЛЬКО В ЭТУ ФОРМУ!
-
-
 import asyncio
 from asyncio import transports
 from typing import Optional
@@ -40,20 +20,17 @@ class ClientProtocol(asyncio.Protocol):
             # login:User
             if decoded.startswith('login:'):
                 self.login = decoded.replace('login:', '').replace('\r\n', '')
-                # Выбрал вариант с добавлением аттрибута logins в класс Server
-                # Если выполнять дословно, как в ДЗ, то тогда можно было бы сделать
-                # итерирование for client in self.server.clients
-                # и проверить наличие client.login, совпадающего с подключающимся
-                if self.login in self.server.logins:
+                # Этот вариант без добавления аттрибута logins в класс Server
+                # и проверки вхождения в него
+            for client in self.server.clients[:-1]:
+                if client.login == self.login:
                     print('Attempt of logging on the logged in user')
                     self.transport.write(f'Логин {self.login} занят, попробуйте другой'.encode())
                     # отрубаем клиента
                     self.transport.close()
-                else:
-                    self.server.logins.append(self.login)
-                    self.transport.write(f'Hello, {self.login}\n'.encode())
-                    # отправляем историю с 10 (максимум) сообщеняими
-                    self.send_history(10)
+            self.transport.write(f'Hello, {self.login}\n'.encode())
+            # отправляем историю с 10 (максимум) сообщеняими
+            self.send_history(10)
         else:
             self.send_message(decoded)
 
@@ -86,12 +63,11 @@ class ClientProtocol(asyncio.Protocol):
 
 class Server:
     clients: list
-    logins: list
+    # logins: list
     history: list
 
     def __init__(self):
         self.clients = []
-        self.logins = []
         self.history = []
 
     def create_protocol(self):
